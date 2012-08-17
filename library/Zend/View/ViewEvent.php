@@ -16,6 +16,10 @@ use Zend\Stdlib\ResponseInterface as Response;
 use Zend\View\Model\ModelInterface as Model;
 use Zend\View\Renderer\RendererInterface as Renderer;
 
+/**
+ * @category   Zend
+ * @package    Zend_View
+ */
 class ViewEvent extends Event
 {
     /**#@+
@@ -23,6 +27,7 @@ class ViewEvent extends Event
      */
     const EVENT_RENDERER = 'renderer';
     const EVENT_RENDERER_POST = 'renderer.post';
+    const EVENT_RENDER   = 'render';
     const EVENT_RESPONSE = 'response';
     /**#@-*/
 
