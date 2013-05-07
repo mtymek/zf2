@@ -9,8 +9,6 @@
 
 namespace Zend\View;
 
-use Zend\EventManager\Event;
-use Zend\EventManager\EventInterface;
 use Zend\EventManager\EventManager;
 use Zend\EventManager\EventManagerAwareInterface;
 use Zend\EventManager\EventManagerInterface;
@@ -18,7 +16,6 @@ use Zend\Stdlib\RequestInterface as Request;
 use Zend\Stdlib\ResponseInterface as Response;
 use Zend\View\Model\ModelInterface as Model;
 use Zend\View\Renderer\RendererInterface as Renderer;
-use Zend\View\Renderer\TreeRendererInterface;
 
 class View implements EventManagerAwareInterface
 {
@@ -162,73 +159,8 @@ class View implements EventManagerAwareInterface
             return;
         }
 
-        $that = $this;
-
-        $eventManager->attach(
-            ViewEvent::EVENT_RENDER,
-            function (ViewEvent $event) use ($that) {
-                $result = $event->getResult() . $that->doRender($event, $event->getModel());
-                $event->setResult($result);
-
-                return $result;
-            }
-        );
-    }
-
-    /**
-     * @todo move to own listener class
-     * @todo add custom event class
-     * @todo make inaccessible
-     */
-    public function doRender(ViewEvent $event, Model $model)
-    {
-        $event->setModel($model);
-        $events  = $this->getEventManager();
-        $results = $events->trigger(ViewEvent::EVENT_RENDERER, $event, function ($result) {
-            return ($result instanceof Renderer);
-        });
-        $renderer = $results->last();
-
-        if (!$renderer instanceof Renderer) {
-            throw new Exception\RuntimeException(sprintf(
-                '%s: no renderer selected!',
-                __METHOD__
-            ));
-        }
-
-        $event->setRenderer($renderer);
-        $results = $events->trigger(ViewEvent::EVENT_RENDERER_POST, $event);
-
-        // If EVENT_RENDERER or EVENT_RENDERER_POST changed the model, make sure
-        // we use this new model instead of the current $model
-        $model   = $event->getModel();
-
-        // If we have children, render them first, but only if:
-        // a) the renderer does not implement TreeRendererInterface, or
-        // b) it does, but canRenderTrees() returns false
-        if ($model->hasChildren()
-            && (!$renderer instanceof TreeRendererInterface
-                || !$renderer->canRenderTrees())
-        ) {
-            $this->renderChildren($model);
-        }
-
-        // Reset the model, in case it has changed, and set the renderer
-        $event->setModel($model);
-        $event->setRenderer($renderer);
-
-        $rendered = $renderer->render($model);
-
-        // If this is a child model, return the rendered content; do not
-        // invoke the response strategy.
-        $options = $model->getOptions();
-
-        if (!(array_key_exists('has_parent', $options) && $options['has_parent'])) {
-            $event->setResult($rendered);
-            $events->trigger(ViewEvent::EVENT_RESPONSE, $event);
-        }
-
-        return $rendered;
+        $listener = new RenderListener();
+        $eventManager->attachAggregate($listener);
     }
 
     /**
@@ -241,52 +173,55 @@ class View implements EventManagerAwareInterface
      * - Trigger the "response" event
      *
      * @triggers renderer(ViewEvent)
+     * @triggers renderer.post(ViewEvent)
+     * @triggers render(ViewEvent)
      * @triggers response(ViewEvent)
      * @param  Model $model
-     * @return string
+     * @throws Exception\RuntimeException
+     * @return void
      */
     public function render(Model $model)
     {
-        $event = new ViewEvent();
+        $event = $this->getEvent();
         $event->setModel($model);
         $event->setResult('');
+
+        // resolve renderer
+        $events  = $this->getEventManager();
+        $results = $events->trigger(ViewEvent::EVENT_RENDERER, $event, function ($result) {
+                return ($result instanceof Renderer);
+            });
+        $renderer = $results->last();
+
+        if (!$renderer instanceof Renderer) {
+            throw new Exception\RuntimeException(sprintf(
+                '%s: no renderer selected!',
+                __METHOD__
+            ));
+        }
+
+        $event->setRenderer($renderer);
+        $events->trigger(ViewEvent::EVENT_RENDERER_POST, $event);
+
+        // render model
         $result = $this->getEventManager()->trigger(
             ViewEvent::EVENT_RENDER,
             $event,
             function($result) {
                 return is_string($result);
             }
-        );
+        )->last();
 
-        return $result->last();
-    }
+        // If this is a child model, return the rendered content; do not
+        // invoke the response strategy.
+        $options = $model->getOptions();
 
-    /**
-     * Loop through children, rendering each
-     *
-     * @param  Model $model
-     * @throws Exception\DomainException
-     * @return void
-     */
-    protected function renderChildren(Model $model)
-    {
-        foreach ($model as $child) {
-            if ($child->terminate()) {
-                throw new Exception\DomainException('Inconsistent state; child view model is marked as terminal');
-            }
-            $child->setOption('has_parent', true);
-            $result  = $this->render($child);
-            $child->setOption('has_parent', null);
-            $capture = $child->captureTo();
-            if (!empty($capture)) {
-                if ($child->isAppend()) {
-                    $oldResult=$model->{$capture};
-                    $model->setVariable($capture, $oldResult . $result);
-                } else {
-                    $model->setVariable($capture, $result);
-                }
-            }
+        if (array_key_exists('has_parent', $options) && $options['has_parent']) {
+            return $result;
         }
+
+        $event->setResult($result);
+        $events->trigger(ViewEvent::EVENT_RESPONSE, $event);
     }
 
     /**
