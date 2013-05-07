@@ -13,6 +13,7 @@ namespace ZendTest\View;
 use ArrayObject;
 use PHPUnit_Framework_TestCase as TestCase;
 use stdClass;
+use Zend\EventManager\ResponseCollection;
 use Zend\Http\Request;
 use Zend\Http\Response;
 use Zend\View\Model\ViewModel;
@@ -333,5 +334,31 @@ class ViewTest extends TestCase
                  ->with($model2);
 
         $this->view->render($model1);
+    }
+
+    public function testRenderTriggersEvents()
+    {
+        $renderer = $this->getMock('Zend\View\Renderer\PhpRenderer', array('render'));
+        $responseCollection1 = new ResponseCollection;
+        $responseCollection1->push($renderer);
+        $eventManager = $this->getMock('Zend\EventManager\EventManager', array('trigger'));
+        $eventManager->expects($this->at(0))->method('trigger')
+            ->with(ViewEvent::EVENT_RENDERER, $this->isInstanceOf('Zend\View\ViewEvent'))
+            ->will($this->returnValue($responseCollection1));
+
+        $eventManager->expects($this->at(1))->method('trigger')
+            ->with(ViewEvent::EVENT_RENDERER_POST, $this->isInstanceOf('Zend\View\ViewEvent'));
+
+        $responseCollection2 = new ResponseCollection;
+        $eventManager->expects($this->at(2))->method('trigger')
+            ->with(ViewEvent::EVENT_RENDER, $this->isInstanceOf('Zend\View\ViewEvent'))
+            ->will($this->returnValue($responseCollection2));
+
+        $eventManager->expects($this->at(3))->method('trigger')
+            ->with(ViewEvent::EVENT_RESPONSE, $this->isInstanceOf('Zend\View\ViewEvent'));
+
+        $model = new ViewModel;
+        $this->view->setEventManager($eventManager);
+        $this->view->render($model);
     }
 }
