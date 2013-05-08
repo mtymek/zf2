@@ -75,7 +75,10 @@ class RenderListener implements ListenerAggregateInterface
         $event->setModel($model);
         $event->setRenderer($renderer);
 
-        return $renderer->render($model);
+        $output = $renderer->render($model);
+        $event->setOutput($output);
+
+        return $output;
     }
 
     /**

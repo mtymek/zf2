@@ -19,6 +19,9 @@ use Zend\View\ViewEvent;
 
 class ViewEventTest extends TestCase
 {
+    /**
+     * @var ViewEvent
+     */
     protected $event;
 
     public function setUp()
@@ -49,6 +52,11 @@ class ViewEventTest extends TestCase
     public function testResultIsNullByDefault()
     {
         $this->assertNull($this->event->getResult());
+    }
+
+    public function testOutputIsNullByDefault()
+    {
+        $this->assertNull($this->event->getOutput());
     }
 
     public function testModelIsMutable()
@@ -84,6 +92,13 @@ class ViewEventTest extends TestCase
         $result = 'some result';
         $this->event->setResult($result);
         $this->assertSame($result, $this->event->getResult());
+    }
+
+    public function testOutputIsMutable()
+    {
+        $output = 'some output';
+        $this->event->setOutput($output);
+        $this->assertSame($output, $this->event->getOutput());
     }
 
     public function testModelIsMutableViaSetParam()
@@ -126,6 +141,14 @@ class ViewEventTest extends TestCase
         $this->assertSame($result, $this->event->getParam('result'));
     }
 
+    public function testOutputIsMutableViaSetParam()
+    {
+        $output = 'some output';
+        $this->event->setParam('output', $output);
+        $this->assertSame($output, $this->event->getOutput());
+        $this->assertSame($output, $this->event->getParam('output'));
+    }
+
     public function testSpecializedParametersMayBeSetViaSetParams()
     {
         $model    = new ViewModel();
@@ -133,6 +156,7 @@ class ViewEventTest extends TestCase
         $request  = new Request();
         $response = new Response();
         $result   = 'some result';
+        $output   = 'some output';
 
         $params   = array(
             'model'    => $model,
@@ -140,6 +164,7 @@ class ViewEventTest extends TestCase
             'request'  => $request,
             'response' => $response,
             'result'   => $result,
+            'output'   => $output,
             'otherkey' => 'other value',
         );
 
@@ -160,6 +185,9 @@ class ViewEventTest extends TestCase
 
         $this->assertSame($params['result'], $this->event->getResult());
         $this->assertSame($params['result'], $this->event->getParam('result'));
+
+        $this->assertSame($params['output'], $this->event->getOutput());
+        $this->assertSame($params['output'], $this->event->getParam('output'));
 
         $this->assertEquals($params['otherkey'], $this->event->getParam('otherkey'));
     }

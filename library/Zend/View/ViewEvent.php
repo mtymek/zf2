@@ -22,7 +22,7 @@ use Zend\View\Renderer\RendererInterface as Renderer;
  */
 class ViewEvent extends Event
 {
-    /**#@+
+    /**#@+ \
      * View events triggered by eventmanager
      */
     const EVENT_RENDERER = 'renderer';
@@ -55,6 +55,11 @@ class ViewEvent extends Event
      * @var mixed
      */
     protected $result;
+
+    /**
+     * @var string
+     */
+    protected $output;
 
     /**
      * Set the view model
@@ -101,6 +106,16 @@ class ViewEvent extends Event
     public function setResult($result)
     {
         $this->result = $result;
+        return $this;
+    }
+
+    /**
+     * @param string $output
+     * @return ViewEvent
+     */
+    public function setOutput($output)
+    {
+        $this->output = $output;
         return $this;
     }
 
@@ -157,13 +172,23 @@ class ViewEvent extends Event
     }
 
     /**
-     * Retrieve the result of rendering
+     * Retrieve the renderer OR result of rendering
      *
      * @return mixed
      */
     public function getResult()
     {
         return $this->result;
+    }
+
+    /**
+     * Retrieve renderer output
+     *
+     * @return string
+     */
+    public function getOutput()
+    {
+        return $this->output;
     }
 
     /**
@@ -186,6 +211,8 @@ class ViewEvent extends Event
                 return $this->getResponse();
             case 'result':
                 return $this->getResult();
+            case 'output':
+                return $this->getOutput();
             default:
                 return parent::getParam($name, $default);
         }
@@ -204,6 +231,7 @@ class ViewEvent extends Event
         $params['request']  = $this->getRequest();
         $params['response'] = $this->getResponse();
         $params['result']   = $this->getResult();
+        $params['output']   = $this->getOutput();
         return $params;
     }
 
@@ -220,7 +248,7 @@ class ViewEvent extends Event
             return $this;
         }
 
-        foreach (array('model', 'renderer', 'request', 'response', 'result') as $param) {
+        foreach (array('model', 'renderer', 'request', 'response', 'result', 'output') as $param) {
             if (isset($params[$param])) {
                 $method = 'set' . $param;
                 $this->$method($params[$param]);
@@ -253,6 +281,9 @@ class ViewEvent extends Event
                 break;
             case 'result':
                 $this->setResult($value);
+                break;
+            case 'output':
+                $this->setOutput($value);
                 break;
             default:
                 parent::setParam($name, $value);

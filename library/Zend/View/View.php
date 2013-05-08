@@ -204,23 +204,20 @@ class View implements EventManagerAwareInterface
         $events->trigger(ViewEvent::EVENT_RENDERER_POST, $event);
 
         // render model
-        $result = $this->getEventManager()->trigger(
+        $this->getEventManager()->trigger(
             ViewEvent::EVENT_RENDER,
-            $event,
-            function($result) {
-                return is_string($result);
-            }
-        )->last();
+            $event
+        );
 
         // If this is a child model, return the rendered content; do not
         // invoke the response strategy.
         $options = $model->getOptions();
 
         if (array_key_exists('has_parent', $options) && $options['has_parent']) {
-            return $result;
+            return $event->getOutput();
         }
 
-        $event->setResult($result);
+        $event->setResult($event->getOutput());
         $events->trigger(ViewEvent::EVENT_RESPONSE, $event);
     }
 
